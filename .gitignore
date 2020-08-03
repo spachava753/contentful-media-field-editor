@@ -47,7 +47,7 @@
 # .idea/modules.xml
 # .idea/*.iml
 # .idea/modules
-# *.iml
+*.iml
 # *.ipr
 
 # CMake
@@ -655,3 +655,5 @@ MigrationBackup/
 .ionide/
 
 # End of https://www.toptal.com/developers/gitignore/api/webstorm+all,intellij+all,code,visualstudiocode,node,visualstudio,sublimetext
+
+.build/
