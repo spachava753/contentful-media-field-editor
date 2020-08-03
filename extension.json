@@ -1,0 +1,10 @@
+{
+  "id": "contentful-media-field-editor",
+  "name": "contentful-media-field-editor",
+  "srcdoc": "./build/index.html",
+  "fieldTypes": [
+    "Symbol",
+    "Symbols",
+    "Text"
+  ]
+}

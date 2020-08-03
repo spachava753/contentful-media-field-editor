@@ -656,4 +656,4 @@ MigrationBackup/
 
 # End of https://www.toptal.com/developers/gitignore/api/webstorm+all,intellij+all,code,visualstudiocode,node,visualstudio,sublimetext
 
-.build/
+build
