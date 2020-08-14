@@ -1,13 +1,12 @@
 import * as React from 'react';
-import { render } from 'react-dom';
-import { init, FieldExtensionSDK } from 'contentful-ui-extensions-sdk';
-import '@contentful/forma-36-react-components/dist/styles.css';
+import {render} from 'react-dom';
+import {FieldExtensionSDK, init} from 'contentful-ui-extensions-sdk';
 import './index.css';
 import {App} from "./App";
 
 
 init(sdk => {
-  render(<App sdk={sdk as FieldExtensionSDK} />, document.getElementById('root'));
+  render(<App sdk={sdk as FieldExtensionSDK}/>, document.getElementById('root'));
 });
 
 /**
