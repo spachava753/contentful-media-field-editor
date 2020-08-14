@@ -659,4 +659,4 @@ MigrationBackup/
 build
 
 # used to store credentials
-cred.ts
+**/cred.ts
