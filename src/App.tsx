@@ -26,12 +26,40 @@ interface FileMetaData {
     fileExtension: string;
 }
 
+const isImage = (ext: string) => {
+    switch (ext) {
+        case "png":
+        case "jpg":
+        case "JPG":
+        case "jpeg":
+        case "gif":
+            return true
+        default:
+            return false
+    }
+};
+
+const isVideo = (ext: string) => {
+    switch (ext) {
+        case "wav":
+        case "mp4":
+            return true
+        default:
+            return false
+    }
+};
+
 function Preview(props: PreviewProps) {
     const {fileUrl, fileName, fileExtension} = props;
     return (
         <>
-            <p>{fileUrl}</p>
-            <img src={fileUrl}/>
+            <p>{fileName}.{fileExtension}</p>
+            {isImage(fileExtension) &&
+            <img src={fileUrl} alt="Uploaded media" style={{maxWidth: "100%", height: "auto"}}/>}
+            {isVideo(fileExtension) && <video width="400" controls>
+              <source src={fileUrl} type={`video/${fileExtension}`}/>
+              Your browser does not support HTML video.</video>
+            }
         </>
     )
 }
@@ -136,6 +164,7 @@ export function App(props: AppProps) {
         sdk.window.startAutoResizer();
         return () => {
             uppy.close()
+            sdk.window.stopAutoResizer();
         }
     }, [])
 
@@ -149,7 +178,7 @@ export function App(props: AppProps) {
               />
             </div>}
             {(uploaded && appReady) &&
-            <div><Preview fileUrl={fileData["url"]} fileName={fileData["uuid"]} fileExtension={fileData["ext"]}/>
+            <div><Preview fileUrl={fileData["url"]} fileName={fileData["uuid"]} fileExtension={fileData["ext"]}/><br/>
               <Button buttonType="negative" onClick={deleteMedia}>Delete</Button></div>}
             <HelpText><i>Upload a file (image, video, podcast) to see a preview</i></HelpText>
         </>
