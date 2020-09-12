@@ -55,8 +55,8 @@ function Preview(props: PreviewProps) {
         <>
             <p>{fileName}.{fileExtension}</p>
             {isImage(fileExtension) &&
-            <img src={fileUrl} alt="Uploaded media" style={{maxWidth: "100%", height: "auto"}}/>}
-            {isVideo(fileExtension) && <video width="400" controls>
+            <img src={fileUrl} alt="Could not show preview. Maybe refresh?" style={{maxWidth: "100%", height: "auto"}}/>}
+            {isVideo(fileExtension) && <video width="400" controls style={{maxWidth: "100%", height: "auto"}}>
               <source src={fileUrl} type={`video/${fileExtension}`}/>
               Your browser does not support HTML video.</video>
             }
