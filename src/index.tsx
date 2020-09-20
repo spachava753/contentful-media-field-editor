@@ -1,12 +1,17 @@
 import * as React from 'react';
 import {render} from 'react-dom';
-import {FieldExtensionSDK, init} from 'contentful-ui-extensions-sdk';
+import {AppExtensionSDK, FieldExtensionSDK, init, locations} from 'contentful-ui-extensions-sdk';
 import './index.css';
 import {App} from "./App";
+import {Config} from "./ConfigScreen";
 
 
 init(sdk => {
-  render(<App sdk={sdk as FieldExtensionSDK}/>, document.getElementById('root'));
+  if (sdk.location.is(locations.LOCATION_ENTRY_FIELD)) {
+    render(<App sdk={sdk as FieldExtensionSDK}/>, document.getElementById('root'));
+  } else if (sdk.location.is(locations.LOCATION_APP_CONFIG)) {
+    render(<Config sdk={sdk as AppExtensionSDK} />, document.getElementById('root'));
+  }
 });
 
 /**

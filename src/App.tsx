@@ -3,12 +3,14 @@ import React, {isValidElement, useEffect, useMemo, useState} from "react";
 import {HelpText, Button} from "@contentful/forma-36-react-components";
 import "@contentful/forma-36-react-components";
 import {Dashboard} from '@uppy/react';
-import Uppy from '@uppy/core';
+import Uppy, {UppyFile} from '@uppy/core';
 import '@uppy/core/dist/style.css';
 import '@uppy/dashboard/dist/style.css';
 import AwsS3 from "@uppy/aws-s3";
-import {apiKey, url} from "./cred";
 import '@contentful/forma-36-react-components/dist/styles.css';
+import {EntryState, getEntryStatus, setEntryApiKey, setApiKey, setUrl, setEntryUrl, getApiKey, getUrl} from "./db";
+import _ from 'lodash-es';
+import {useEffectOnce} from "react-use";
 
 interface AppProps {
     sdk: FieldExtensionSDK;
@@ -21,9 +23,35 @@ interface PreviewProps {
 }
 
 interface FileMetaData {
-    fileUrl: string;
-    fileName: string;
-    fileExtension: string;
+    url: string;
+    uuid: string;
+    ext: string;
+}
+
+function parseURL(url: string): FileMetaData {
+    const parsedURL = new URL(url)
+    let result = {
+        "url": "",
+        "uuid": "",
+        "ext": ""
+    }
+    parsedURL.pathname
+    console.log(parsedURL.pathname)
+    if (parsedURL.pathname.includes("images")) {
+        result['url'] = url
+        console.log(parsedURL.pathname.split("/images/")[1])
+        const fileName = parsedURL.pathname.split("/images/")[1];
+        const fileMeta = fileName.split(".")
+        result['uuid'] = fileMeta[0];
+        result['ext'] = fileMeta[1];
+    } else {
+        result['url'] = url
+        const fileName = parsedURL.pathname.split("/")[1];
+        const fileMeta = fileName.split(".")
+        result['uuid'] = fileMeta[0];
+        result['ext'] = fileMeta[1];
+    }
+    return result
 }
 
 const isImage = (ext: string) => {
@@ -55,7 +83,8 @@ function Preview(props: PreviewProps) {
         <>
             <p>{fileName}.{fileExtension}</p>
             {isImage(fileExtension) &&
-            <img src={fileUrl} alt="Could not show preview. Maybe refresh?" style={{maxWidth: "100%", height: "auto"}}/>}
+            <img src={fileUrl} alt="Could not show preview. Maybe refresh?"
+                 style={{maxWidth: "100%", height: "auto"}}/>}
             {isVideo(fileExtension) && <video width="400" controls style={{maxWidth: "100%", height: "auto"}}>
               <source src={fileUrl} type={`video/${fileExtension}`}/>
               Your browser does not support HTML video.</video>
@@ -68,25 +97,35 @@ export function App(props: AppProps) {
     const {sdk} = props;
 
     console.log(sdk.field)
-    const [appReady, setAppReady] = useState(false);
+    const [sdkReady, setSdkReady] = useState(false);
     const [fileData, setFileData] = useState({});
     const [uploaded, setUploaded] = useState(false);
     console.log(JSON.stringify(fileData))
     console.log(uploaded)
 
     useEffect(() => {
-        if (sdk.field != undefined && !appReady) {
-            const v = sdk.field.getValue();
-            if (v == undefined) {
-                setFileData(v)
-                setUploaded(false)
-            } else {
-                setFileData(JSON.parse(v))
-                setUploaded(true)
+            if (sdk.field != undefined && !sdkReady) {
+                const v = sdk.field.getValue();
+                if (v == undefined) {
+                    setFileData(v)
+                    setUploaded(false)
+                } else {
+                    let d;
+                    try {
+                        d = JSON.parse(v)
+                        setFileData(d)
+                    } catch (e) {
+                        console.log(e)
+                        setFileData(parseURL(v))
+                        //setFileData(JSON.parse(v))
+                    }
+                    setUploaded(true)
+                }
+                setSdkReady(true)
             }
-            setAppReady(true)
-        }
-    }, [sdk.field])
+        },
+        [sdk.field]
+    )
 
     const uppy = useMemo(() => {
         let temp;
@@ -99,10 +138,10 @@ export function App(props: AppProps) {
             limit: 1,
             timeout: 1000 * 3600,
             getUploadParameters(file) {
-                return fetch(url, {
+                return fetch(getUrl(), {
                     method: 'post',
                     headers: {
-                        'x-api-key': apiKey
+                        'x-api-key': getApiKey()
                     },
                     body: JSON.stringify({
                         "operation": "upload",
@@ -137,15 +176,74 @@ export function App(props: AppProps) {
             }).catch(err => {
                 console.log(`ENTRY UPDDDDAATE FAIILED: ${err}`)
             })
+        }).on('file-added', (file: UppyFile) => {
+            console.log("File added")
+            console.log(JSON.stringify(file))
+            // get entry status when file is added
+            getEntryStatus(sdk.entry.getSys().id).then(r => {
+                console.log(r)
+                return r.data
+            }).then(data => {
+                if (!_.isEmpty(data)) {
+                    if (data.entryState == EntryState[EntryState.EDITABLE]) {
+                        // entry is editable but not checked out
+                        sdk.dialogs.openAlert({
+                            title: 'Directions!',
+                            message: 'You are viewing the current entry in read only mode! ' +
+                                'Click on the big blue button the right',
+                            shouldCloseOnEscapePress: true,
+                            shouldCloseOnOverlayClick: true
+                        });
+                        uppy.removeFile(file.id)
+                    } else {
+                        // entry is not editable
+                        if (data['userId'] != sdk.user.sys.id) {
+                            sdk.dialogs.openAlert({
+                                title: 'Warning!',
+                                message:
+                                    'You are viewing the current entry when someone else is editing it. ' +
+                                    'You can view the current entry in read only mode!',
+                                shouldCloseOnEscapePress: true,
+                                shouldCloseOnOverlayClick: true
+                            });
+                            uppy.removeFile(file.id)
+                        }
+                    }
+                } else {
+                    // entry doesn't exist in db,
+                    sdk.dialogs.openAlert({
+                        title: 'Directions!',
+                        message: 'You are viewing the current entry in read only mode! ' +
+                            'Click on the big blue button the right',
+                        shouldCloseOnEscapePress: true,
+                        shouldCloseOnOverlayClick: true
+                    });
+                    uppy.removeFile(file.id)
+                }
+            })
         });
     }, [])
 
+    useEffectOnce(() => {
+        sdk.window.startAutoResizer();
+        console.log(`App params: ${JSON.stringify(sdk.parameters.installation)}`);
+        const params = sdk.parameters.installation as any;
+        setEntryUrl(params['entryApiUrl']);
+        setEntryApiKey(params['entryApiKey']);
+        setUrl(params['url']);
+        setApiKey(params['apiKey']);
+        return () => {
+            uppy.close()
+            sdk.window.stopAutoResizer();
+        }
+    });
+
     const deleteMedia = () => {
         console.log(`Deleting ${fileData["uuid"]}.${fileData["ext"]}`)
-        fetch(url, {
+        fetch(getUrl(), {
             method: 'post',
             headers: {
-                'x-api-key': apiKey
+                'x-api-key': getApiKey()
             },
             body: JSON.stringify({
                 "uuid": fileData["uuid"],
@@ -160,24 +258,16 @@ export function App(props: AppProps) {
         })
     }
 
-    useEffect(() => {
-        sdk.window.startAutoResizer();
-        return () => {
-            uppy.close()
-            sdk.window.stopAutoResizer();
-        }
-    }, [])
-
     return (
         <>
-            {(!uploaded && appReady) &&
+            {(!uploaded && sdkReady) &&
             <div>
               <Dashboard
                 uppy={uppy}
                 plugins={['GoogleDrive']}
               />
             </div>}
-            {(uploaded && appReady) &&
+            {(uploaded && sdkReady) &&
             <div><Preview fileUrl={fileData["url"]} fileName={fileData["uuid"]} fileExtension={fileData["ext"]}/><br/>
               <Button buttonType="negative" onClick={deleteMedia}>Delete</Button></div>}
             <HelpText><i>Upload a file (image, video, podcast) to see a preview</i></HelpText>
